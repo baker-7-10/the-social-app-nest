@@ -5,14 +5,11 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getPaginationParams, PaginationDto } from '../common/dto/pagination.dto';
+import { authorProfileSelect } from '../users/user-profile.select';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 
-const authorSelect = {
-  id: true,
-  username: true,
-  avatarUrl: true,
-} as const;
+const authorSelect = authorProfileSelect;
 
 @Injectable()
 export class PostsService {
@@ -110,7 +107,12 @@ export class PostsService {
       authorId: string;
       createdAt: Date;
       updatedAt: Date;
-      author: { id: string; username: string; avatarUrl: string | null };
+      author: {
+        id: string;
+        username: string;
+        displayName: string | null;
+        avatarUrl: string | null;
+      };
       _count: { likes: number; comments: number };
       likes: { userId: string }[];
     },

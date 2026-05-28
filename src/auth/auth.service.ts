@@ -6,18 +6,32 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { privateProfileFields } from '../users/user-profile.select';
 import { LoginDto } from './dto/login.dto';
 import { SignUpDto } from './dto/sign-up.dto';
 
-const userSelect = {
-  id: true,
-  email: true,
-  username: true,
-  bio: true,
-  avatarUrl: true,
-  createdAt: true,
-  updatedAt: true,
-} as const;
+const authUserSelect = privateProfileFields;
+
+type AuthUser = {
+  id: string;
+  email: string;
+  username: string;
+  displayName: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  bio: string | null;
+  avatarUrl: string | null;
+  coverUrl: string | null;
+  location: string | null;
+  website: string | null;
+  pronouns: string | null;
+  gender: string | null;
+  phone: string | null;
+  dateOfBirth: Date | null;
+  isPrivate: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 @Injectable()
 export class AuthService {
@@ -44,8 +58,11 @@ export class AuthService {
         email: dto.email,
         username: dto.username,
         passwordHash,
+        displayName: dto.displayName,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
       },
-      select: userSelect,
+      select: authUserSelect,
     });
 
     return this.buildAuthResponse(user);
@@ -54,6 +71,10 @@ export class AuthService {
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
+      select: {
+        ...authUserSelect,
+        passwordHash: true,
+      },
     });
 
     if (!user) {
@@ -66,26 +87,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    return this.buildAuthResponse({
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      bio: user.bio,
-      avatarUrl: user.avatarUrl,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    });
+    const { passwordHash: _, ...profile } = user;
+
+    return this.buildAuthResponse(profile);
   }
 
-  private buildAuthResponse(user: {
-    id: string;
-    email: string;
-    username: string;
-    bio: string | null;
-    avatarUrl: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }) {
+  private buildAuthResponse(user: AuthUser) {
     const accessToken = this.jwtService.sign({
       sub: user.id,
       username: user.username,

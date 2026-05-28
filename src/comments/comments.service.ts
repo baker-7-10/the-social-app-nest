@@ -5,13 +5,10 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getPaginationParams, PaginationDto } from '../common/dto/pagination.dto';
+import { authorProfileSelect } from '../users/user-profile.select';
 import { CreateCommentDto } from './dto/create-comment.dto';
 
-const authorSelect = {
-  id: true,
-  username: true,
-  avatarUrl: true,
-} as const;
+const authorSelect = authorProfileSelect;
 
 @Injectable()
 export class CommentsService {

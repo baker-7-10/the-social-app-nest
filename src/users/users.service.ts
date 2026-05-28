@@ -6,38 +6,10 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { getPaginationParams, PaginationDto } from '../common/dto/pagination.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-
-const profileSelect = {
-  id: true,
-  email: true,
-  username: true,
-  bio: true,
-  avatarUrl: true,
-  createdAt: true,
-  updatedAt: true,
-  _count: {
-    select: {
-      posts: true,
-      followers: true,
-      following: true,
-    },
-  },
-} as const;
-
-const publicProfileSelect = {
-  id: true,
-  username: true,
-  bio: true,
-  avatarUrl: true,
-  createdAt: true,
-  _count: {
-    select: {
-      posts: true,
-      followers: true,
-      following: true,
-    },
-  },
-} as const;
+import {
+  profileSelect,
+  publicProfileSelect,
+} from './user-profile.select';
 
 @Injectable()
 export class UsersService {
