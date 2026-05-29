@@ -13,6 +13,7 @@ import {
 } from '../common/decorators/current-user.decorator';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { ReactCommentDto } from './dto/react-comment.dto';
 import { CommentsService } from './comments.service';
 
 @Controller()
@@ -34,6 +35,29 @@ export class CommentsController {
     @Query() pagination: PaginationDto,
   ) {
     return this.commentsService.findByPost(postId, pagination);
+  }
+
+  @Post('comments/:id/reactions')
+  react(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: ReactCommentDto,
+  ) {
+    return this.commentsService.react(id, user.sub, dto);
+  }
+
+  @Delete('comments/:id/reactions')
+  unreact(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: ReactCommentDto,
+  ) {
+    return this.commentsService.unreact(id, user.sub, dto.emoji);
+  }
+
+  @Get('comments/:id/reactions')
+  getReactions(@Param('id') id: string) {
+    return this.commentsService.getReactions(id);
   }
 
   @Delete('comments/:id')
