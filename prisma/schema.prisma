@@ -39,6 +39,7 @@ model Post {
   id        String   @id @default(cuid())
   content   String
   imageUrl  String?
+  videoUrl  String?
   authorId  String
   author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())

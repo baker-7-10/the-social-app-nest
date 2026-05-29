@@ -8,4 +8,8 @@ export class UpdatePostDto {
   @IsOptional()
   @IsUrl()
   imageUrl?: string;
+
+  @IsOptional()
+  @IsUrl()
+  videoUrl?: string;
 }

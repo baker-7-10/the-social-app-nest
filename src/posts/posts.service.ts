@@ -20,6 +20,7 @@ export class PostsService {
       data: {
         content: dto.content,
         imageUrl: dto.imageUrl,
+        videoUrl: dto.videoUrl,
         authorId,
       },
       select: this.postSelect(authorId),
@@ -87,6 +88,7 @@ export class PostsService {
       id: true,
       content: true,
       imageUrl: true,
+      videoUrl: true,
       authorId: true,
       createdAt: true,
       updatedAt: true,
