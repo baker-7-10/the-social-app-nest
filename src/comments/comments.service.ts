@@ -19,32 +19,18 @@ export class CommentsService {
     await this.ensurePostExists(postId);
 
     if (dto.parentId) {
-      const parent = await this.prisma.comment.findUnique({ where: { id: dto.parentId } });
-
-      if (!parent) {
-        throw new NotFoundException('Parent comment not found');
-      }
-
+      const parent = await this.ensureCommentExists(dto.parentId);
       if (parent.postId !== postId) {
-        throw new ForbiddenException('Parent comment does not belong to the same post');
+        throw new ForbiddenException('Parent comment does not belong to this post');
       }
     }
 
     return this.prisma.comment.create({
-      data: {
-        content: dto.content,
-        postId,
-        authorId,
-        parentId: dto.parentId,
-      },
+      data: { content: dto.content, postId, authorId, parentId: dto.parentId },
       select: {
-        id: true,
-        content: true,
-        postId: true,
-        parentId: true,
-        authorId: true,
-        createdAt: true,
-        updatedAt: true,
+        id: true, content: true, postId: true,
+        parentId: true, authorId: true,
+        createdAt: true, updatedAt: true,
         author: { select: authorSelect },
         _count: { select: { replies: true, reactions: true } },
       },
@@ -57,23 +43,18 @@ export class CommentsService {
 
     const [data, total] = await Promise.all([
       this.prisma.comment.findMany({
-        where: { postId },
-        skip,
-        take,
+        where: { postId, parentId: null }, // ✅ top-level فقط
+        skip, take,
         orderBy: { createdAt: 'desc' },
         select: {
-          id: true,
-          content: true,
-          postId: true,
-          parentId: true,
-          authorId: true,
-          createdAt: true,
-          updatedAt: true,
+          id: true, content: true, postId: true,
+          parentId: true, authorId: true,
+          createdAt: true, updatedAt: true,
           author: { select: authorSelect },
           _count: { select: { replies: true, reactions: true } },
         },
       }),
-      this.prisma.comment.count({ where: { postId } }),
+      this.prisma.comment.count({ where: { postId, parentId: null } }),
     ]);
 
     return {
@@ -83,78 +64,64 @@ export class CommentsService {
   }
 
   async react(commentId: string, userId: string, dto: ReactCommentDto) {
-    const comment = await this.prisma.comment.findUnique({ where: { id: commentId } });
+    await this.ensureCommentExists(commentId);
 
-    if (!comment) {
-      throw new NotFoundException('Comment not found');
-    }
-
-    try {
-      return this.prisma.reaction.create({
-        data: {
-          emoji: dto.emoji,
-          userId,
-          commentId,
-        },
-      });
-    } catch (e: any) {
-      // ignore unique-constraint duplicates
-      return this.prisma.reaction.findFirst({ where: { emoji: dto.emoji, userId, commentId } });
-    }
+    return this.prisma.commentReaction.upsert({
+      where: {
+        userId_commentId_emoji: { userId, commentId, emoji: dto.emoji }
+      },
+      create: { emoji: dto.emoji, userId, commentId },
+      update: {},
+    });
   }
 
   async unreact(commentId: string, userId: string, emoji: string) {
-    const comment = await this.prisma.comment.findUnique({ where: { id: commentId } });
-
-    if (!comment) {
-      throw new NotFoundException('Comment not found');
-    }
-
-    await this.prisma.reaction.deleteMany({ where: { commentId, userId, emoji } });
-
+    await this.ensureCommentExists(commentId);
+    await this.prisma.commentReaction.deleteMany({ where: { commentId, userId, emoji } });
     return { message: 'Reaction removed' };
   }
 
   async getReactions(commentId: string) {
-    const comment = await this.prisma.comment.findUnique({ where: { id: commentId } });
+    await this.ensureCommentExists(commentId);
 
-    if (!comment) {
-      throw new NotFoundException('Comment not found');
-    }
-
-    const groups = await this.prisma.reaction.groupBy({
-      by: ['emoji'],
+    const reactions = await this.prisma.commentReaction.findMany({
       where: { commentId },
-      _count: { _all: true },
+      select: {
+        emoji: true,
+        user: { select: { id: true, username: true, avatarUrl: true } },
+      },
     });
 
-    return groups.map((g) => ({ emoji: g.emoji, count: g._count._all }));
+    const grouped = reactions.reduce((acc: any, r) => {
+      if (!acc[r.emoji]) acc[r.emoji] = { emoji: r.emoji, count: 0, users: [] };
+      acc[r.emoji].count++;
+      acc[r.emoji].users.push(r.user);
+      return acc;
+    }, {});
+
+    return Object.values(grouped);
   }
 
   async remove(id: string, authorId: string) {
-    const comment = await this.prisma.comment.findUnique({ where: { id } });
-
-    if (!comment) {
-      throw new NotFoundException('Comment not found');
-    }
+    const comment = await this.ensureCommentExists(id);
 
     if (comment.authorId !== authorId) {
       throw new ForbiddenException('You can only delete your own comments');
     }
 
     await this.prisma.comment.delete({ where: { id } });
-
     return { message: 'Comment deleted successfully' };
   }
 
-  private async ensurePostExists(postId: string) {
-    const post = await this.prisma.post.findUnique({
-      where: { id: postId },
-      select: { id: true },
-    });
+  private async ensureCommentExists(commentId: string) {
+    const comment = await this.prisma.comment.findUnique({ where: { id: commentId } });
+    if (!comment) throw new NotFoundException('Comment not found');
+    return comment;
+  }
 
-    if (!post) {
-      throw new NotFoundException('Post not found');
-    }
+  private async ensurePostExists(postId: string) {
+    const post = await this.prisma.post.findUnique({ where: { id: postId }, select: { id: true } });
+    if (!post) throw new NotFoundException('Post not found');
+    return post;
   }
 }
