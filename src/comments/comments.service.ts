@@ -3,6 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { NotificationType } from '../notifications/notification-type.enum';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { getPaginationParams, PaginationDto } from '../common/dto/pagination.dto';
 import { authorProfileSelect } from '../users/user-profile.select';
@@ -13,19 +15,23 @@ const authorSelect = authorProfileSelect;
 
 @Injectable()
 export class CommentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   async create(postId: string, authorId: string, dto: CreateCommentDto) {
-    await this.ensurePostExists(postId);
+    const post = await this.ensurePostExists(postId);
 
+    let parentComment = null;
     if (dto.parentId) {
-      const parent = await this.ensureCommentExists(dto.parentId);
-      if (parent.postId !== postId) {
+      parentComment = await this.ensureCommentExists(dto.parentId);
+      if (parentComment.postId !== postId) {
         throw new ForbiddenException('Parent comment does not belong to this post');
       }
     }
 
-    return this.prisma.comment.create({
+    const comment = await this.prisma.comment.create({
       data: { content: dto.content, postId, authorId, parentId: dto.parentId },
       select: {
         id: true, content: true, postId: true,
@@ -35,6 +41,26 @@ export class CommentsService {
         _count: { select: { replies: true, reactions: true } },
       },
     });
+
+    if (parentComment && parentComment.authorId !== authorId) {
+      await this.notificationsService.create(parentComment.authorId, {
+        senderId: authorId,
+        recipientId: parentComment.authorId,
+        type: NotificationType.REPLY,
+        message: 'Someone replied to your comment.',
+        linkUrl: `/posts/${postId}`,
+      });
+    } else if (!dto.parentId && post.authorId !== authorId) {
+      await this.notificationsService.create(post.authorId, {
+        senderId: authorId,
+        recipientId: post.authorId,
+        type: NotificationType.COMMENT,
+        message: 'Someone commented on your post.',
+        linkUrl: `/posts/${postId}`,
+      });
+    }
+
+    return comment;
   }
 
   async findByPost(postId: string, pagination: PaginationDto) {
@@ -120,7 +146,10 @@ export class CommentsService {
   }
 
   private async ensurePostExists(postId: string) {
-    const post = await this.prisma.post.findUnique({ where: { id: postId }, select: { id: true } });
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: { id: true, authorId: true },
+    });
     if (!post) throw new NotFoundException('Post not found');
     return post;
   }

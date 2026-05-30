@@ -34,6 +34,35 @@ model User {
   likes            Like[]
   followers        Follow[] @relation("Following")
   following        Follow[] @relation("Follower")
+  notifications    Notification[] @relation("RecipientNotifications")
+  sentNotifications Notification[] @relation("SentNotifications")
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  recipientId String
+  senderId    String?
+  type        NotificationType
+  message     String
+  linkUrl     String?
+  isRead      Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  recipient User   @relation("RecipientNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
+  sender    User?  @relation("SentNotifications", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId])
+  @@index([senderId])
+}
+
+enum NotificationType {
+  LIKE
+  COMMENT
+  FOLLOW
+  REPLY
+  MENTION
+  CUSTOM
 }
 
 model Post {

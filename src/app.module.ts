@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module';
 import { CommentsModule } from './comments/comments.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { NotificationsModule } from './notifications/notifications.module';
 import { validate } from './config/env.validation';
 import { LikesModule } from './likes/likes.module';
 import { PostsModule } from './posts/posts.module';
@@ -19,6 +20,7 @@ import { UsersModule } from './users/users.module';
     PrismaModule,
     AuthModule,
     UsersModule,
+    NotificationsModule,
     PostsModule,
     CommentsModule,
     LikesModule,

@@ -3,6 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { NotificationType } from '../notifications/notification-type.enum';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { getPaginationParams, PaginationDto } from '../common/dto/pagination.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -13,7 +15,10 @@ import {
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   getMe(userId: string) {
     return this.findProfileOrThrow(userId);
@@ -67,6 +72,14 @@ export class UsersService {
 
     await this.prisma.follow.create({
       data: { followerId, followingId },
+    });
+
+    await this.notificationsService.create(followingId, {
+      senderId: followerId,
+      recipientId: followingId,
+      type: NotificationType.FOLLOW,
+      message: 'Someone started following you.',
+      linkUrl: `/users/${followerId}`,
     });
 
     return { message: 'Followed successfully' };
